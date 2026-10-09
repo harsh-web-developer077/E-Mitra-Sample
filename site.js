@@ -258,6 +258,36 @@ const T = {
   }
 };
 
+/* ============================================================
+   इसके नीचे कुछ बदलने की ज़रूरत नहीं है
+   ============================================================ */
+Object.assign(T.hi, {
+  openWord:"खुला है", closedWord:"बंद है", openSub:t=>t+" तक", closedSub:(d,t)=>d+" "+t+" पर खुलेगा",
+  prog:(a,b)=>b+" में से "+a+" तैयार", stamp:"तैयार!", prevLbl:"आपका संदेश ऐसा जाएगा",
+  shopGo:"रेट देखें", daysShort:["रवि","सोम","मंगल","बुध","गुरु","शुक्र","शनि"]
+});
+Object.assign(T.en, {
+  openWord:"OPEN", closedWord:"CLOSED", openSub:t=>"until "+t, closedSub:(d,t)=>"opens "+d+" at "+t,
+  prog:(a,b)=>a+" of "+b+" ready", stamp:"READY!", prevLbl:"YOUR MESSAGE WILL LOOK LIKE THIS",
+  shopGo:"See rates", daysShort:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+});
+
+const ICONS = {
+  home:"M3 11.5 12 4l9 7.5M5.5 10v10H10v-6h4v6h4.5V10",
+  services:"M6 3h8.5L19 7.5V21H6zM14 3v5h5M9.5 13h6M9.5 17h6",
+  rates:"M7 5h10M7 9.5h10M7 5h3.5a4.25 4.25 0 0 1 0 8.5H7l8 7",
+  enquiry:"M4 5h16v11H10l-5 4v-4H4z",
+  contact:"M12 21s7-6.8 7-12a7 7 0 0 0-14 0c0 5.2 7 12 7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+  cert:"M6 3h12v11H6zM9 7h6M9 10.5h6M9.5 14v7l2.5-1.8 2.5 1.8v-7",
+  id:"M3 6h18v13H3zM8.5 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5.5 16.5c.8-1.8 5.2-1.8 6 0M14.5 10.5H18M14.5 14H18",
+  scheme:"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9 8h6M9 11h6M9 8h2.2a2.5 2.5 0 0 1 0 5H9l4.5 4",
+  bill:"M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6",
+  shop:"M7 8V3h10v5M7 17H4.5V8h15v9H17M7 14h10v7H7z",
+  wa:"M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z",
+  go:"M5 12h14M13 6l6 6-6 6"
+};
+const ico = n => '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="' + ICONS[n] + '"/></svg>';
+
 /* ---------- state ---------- */
 const $ = id => document.getElementById(id);
 const all = sel => document.querySelectorAll(sel);
@@ -277,6 +307,9 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", 
 const wa = text => "https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(text);
 const prettyPhone = p => p.replace(/(\d{5})(\d{5})/, "$1 $2");
 const pageHref = p => FILES[p] + (lang === "en" ? "#en" : "");
+const shortName = s => s[lang].replace(/\s*\(.*\)$/, "");
+
+all("[data-ico]").forEach(el => { el.innerHTML = ico(el.dataset.ico); });
 
 /* ---------- time ---------- */
 const mins = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -286,6 +319,7 @@ function fmtTime(t) {
   const part = h < 12 ? "सुबह" : h < 16 ? "दोपहर" : h < 20 ? "शाम" : "रात";
   return part + " " + h12 + ":" + mm;
 }
+const shortTime = t => { const [h, m] = t.split(":").map(Number); return (h % 12 || 12) + (m ? ":" + String(m).padStart(2, "0") : ""); };
 function nowIST() {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone:"Asia/Kolkata", weekday:"short", hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).formatToParts(new Date());
   const get = k => parts.find(p => p.type === k).value;
@@ -293,20 +327,30 @@ function nowIST() {
 }
 function renderStatus() {
   const L = T[lang], now = nowIST(), today = CONFIG.hours[now.day];
-  let open = false, text = L.closedLong;
-  if (today && now.min >= mins(today[0]) && now.min < mins(today[1])) { open = true; text = L.openNow(fmtTime(today[1])); }
-  else if (today && now.min < mins(today[0])) text = L.closedNow(L.today, fmtTime(today[0]));
-  else for (let i = 1; i <= 7; i++) {
-    const d = (now.day + i) % 7, h = CONFIG.hours[d];
-    if (h) { text = L.closedNow(i === 1 ? L.tomorrow : L.days[d], fmtTime(h[0])); break; }
+  let open = false, sub = "", text = L.closedLong;
+  if (today && now.min >= mins(today[0]) && now.min < mins(today[1])) {
+    open = true; sub = L.openSub(fmtTime(today[1])); text = L.openNow(fmtTime(today[1]));
+  } else {
+    let d = null, label = "";
+    if (today && now.min < mins(today[0])) { d = now.day; label = L.today; }
+    else for (let i = 1; i <= 7; i++) { const x = (now.day + i) % 7; if (CONFIG.hours[x]) { d = x; label = i === 1 ? L.tomorrow : L.days[x]; break; } }
+    if (d !== null) { const t = fmtTime(CONFIG.hours[d][0]); sub = L.closedSub(label, t); text = L.closedNow(label, t); }
   }
   all(".js-status").forEach(el => { el.textContent = text; el.className = "status js-status " + (open ? "is-open" : "is-closed"); });
+  all(".js-board").forEach(el => { el.classList.toggle("is-open", open); el.classList.toggle("is-closed", !open); });
+  all(".js-status-word").forEach(el => { el.textContent = open ? L.openWord : L.closedWord; });
+  all(".js-status-sub").forEach(el => { el.textContent = sub; });
   all(".js-today").forEach(el => { el.textContent = today ? fmtTime(today[0]) + " – " + fmtTime(today[1]) : L.closed; });
+  const order = [1,2,3,4,5,6,0];
+  const wk = $("week");
+  if (wk) wk.innerHTML = order.map(d => {
+    const h = CONFIG.hours[d];
+    return '<li class="' + (d === now.day ? "today " : "") + (h ? "" : "shut") + '"><b>' + esc(L.daysShort[d]) + "</b><span>" + esc(h ? shortTime(h[0]) + "–" + shortTime(h[1]) : L.closed) + "</span></li>";
+  }).join("");
   const body = $("hoursBody");
   if (!body) return;
-  // Monday first, equal neighbours merged
   const groups = [];
-  [1,2,3,4,5,6,0].forEach(d => {
+  order.forEach(d => {
     const key = JSON.stringify(CONFIG.hours[d]), g = groups[groups.length - 1];
     if (g && g.key === key) g.days.push(d); else groups.push({ key, days:[d] });
   });
@@ -318,16 +362,19 @@ function renderStatus() {
 }
 
 /* ---------- home ---------- */
-function renderCats() {
+function renderHome() {
   const box = $("catTiles"); if (!box) return;
   const L = T[lang];
   box.innerHTML = CATS.map(c => {
-    const list = SERVICES.filter(s => s.cat === c.id);
-    const names = c.id === "shop" ? list[0][lang] : list.slice(0, 3).map(s => s[lang].replace(/\s*\(.*\)$/, "")).join(lang === "hi" ? ", " : ", ");
-    const count = c.id === "shop" ? L.shopGo : L.catCount(list.length);
-    const target = c.id === "shop" ? "rates" : "services";
-    return '<a class="cat" data-nav="' + target + '" data-cat="' + c.id + '" href="' + pageHref(target) + '"><h3>' + esc(c[lang]) + "</h3><p>" + esc(names) + '</p><span class="go">' + esc(count) + "</span></a>";
+    const list = SERVICES.filter(s => s.cat === c.id), shop = c.id === "shop";
+    const names = shop ? list[0][lang] : list.slice(0, 3).map(shortName).join(", ");
+    const target = shop ? "rates" : "services";
+    return '<a class="tile card" data-c="' + c.id + '" data-nav="' + target + '" data-cat="' + c.id + '" href="' + pageHref(target) + '">' +
+      '<span class="tile-ico">' + ico(c.id) + "</span><h3>" + esc(c[lang]) + "</h3><p>" + esc(names) + '</p><span class="go">' +
+      esc(shop ? L.shopGo : L.catCount(list.length)) + ico("go") + "</span></a>";
   }).join("");
+  const names = SERVICES.map(shortName);
+  $("ticker").innerHTML = names.concat(names).map(n => "<span>" + esc(n) + "</span><i></i>").join("");
 }
 
 /* ---------- services ---------- */
@@ -335,7 +382,14 @@ function renderChips() {
   const box = $("chips"); if (!box) return;
   const L = T[lang];
   box.innerHTML = [{ id:"all", hi:L.all, en:L.all }].concat(CATS).map(c =>
-    '<button type="button" class="chip" data-cat="' + c.id + '" aria-pressed="' + (cat === c.id) + '">' + esc(c[lang]) + "</button>").join("");
+    '<button type="button" class="chip" data-c="' + c.id + '" data-cat="' + c.id + '" aria-pressed="' + (cat === c.id) + '">' + esc(c[lang]) + "</button>").join("");
+}
+function progress(card) {
+  const boxes = card.querySelectorAll('input[type="checkbox"]'), n = boxes.length;
+  let k = 0; boxes.forEach(b => { if (b.checked) k++; });
+  card.querySelector(".prog-text").textContent = T[lang].prog(k, n);
+  card.querySelector(".prog-bar i").style.width = (n ? k / n * 100 : 0) + "%";
+  card.classList.toggle("done", n > 0 && k === n);
 }
 function renderServices() {
   const grid = $("svcGrid"); if (!grid) return;
@@ -348,11 +402,12 @@ function renderServices() {
       const id = "doc-" + s.id + "-" + i;
       return '<li><label for="' + id + '"><input type="checkbox" id="' + id + '"' + (ticked.has(id) ? " checked" : "") + "><span>" + esc(d[lang === "hi" ? 0 : 1]) + "</span></label></li>";
     }).join("");
-    return '<details class="svc" data-id="' + s.id + '"' + (openSet.has(s.id) ? " open" : "") + ">" +
-      "<summary><h3>" + esc(s[lang]) + '</h3><span class="meta">' + esc(L.docCount(s.docs.length)) + " · " + esc(fee) + "</span></summary>" +
-      '<div class="docs"><span class="lbl">' + esc(L.docsLabel) + "</span><ul>" + items + "</ul>" +
-      '<a class="ask" target="_blank" rel="noopener" href="' + esc(wa(L.waService(s[lang]))) + '">' + esc(L.askWa) + "</a></div></details>";
+    return '<details class="svc card" data-c="' + s.cat + '" data-id="' + s.id + '"' + (openSet.has(s.id) ? " open" : "") + ">" +
+      '<summary><span class="ico-chip">' + ico(s.cat) + "</span><div><h3>" + esc(s[lang]) + '</h3><span class="meta">' + esc(L.docCount(s.docs.length)) + " · " + esc(fee) + '</span></div><span class="pm" aria-hidden="true"></span></summary>' +
+      '<div class="docs"><div class="prog"><span class="lbl">' + esc(L.docsLabel) + '</span><span class="prog-text"></span><span class="prog-bar"><i></i></span></div><ul>' + items + "</ul>" +
+      '<div class="docs-foot"><a class="ask" target="_blank" rel="noopener" href="' + esc(wa(L.waService(s[lang]))) + '">' + esc(L.askWa) + '</a><span class="stamp">' + esc(L.stamp) + "</span></div></div></details>";
   }).join("");
+  grid.querySelectorAll(".svc").forEach(progress);
 }
 
 /* ---------- rates ---------- */
@@ -360,27 +415,28 @@ function renderRates() {
   const g = $("govtRates"), sh = $("shopRates"); if (!g || !sh) return;
   const L = T[lang];
   g.innerHTML = CATS.filter(c => c.id !== "shop").map(c =>
-    '<tr class="grp"><th colspan="2" scope="colgroup">' + esc(c[lang]) + "</th></tr>" +
+    '<h3 class="rc-h" data-c="' + c.id + '"><span class="ico-chip">' + ico(c.id) + "</span>" + esc(c[lang]) + '</h3><ul class="rc">' +
     SERVICES.filter(s => s.cat === c.id).map(s =>
-      '<tr><th scope="row">' + esc(s[lang]) + '</th><td class="' + (s.fee ? "price" : "") + '">' + esc(s.fee ? "₹" + s.fee : L.feeGovtShort) + "</td></tr>").join("")
+      '<li><span class="rc-n">' + esc(s[lang]) + '</span><i class="rc-dots"></i><b>' + esc(s.fee ? "₹" + s.fee : L.feeGovtShort) + "</b></li>").join("") + "</ul>"
   ).join("");
   sh.innerHTML = SHOP_RATES.map(r =>
-    '<tr><th scope="row">' + esc(r[lang]) + '</th><td class="unit">' + esc(r.unit[lang === "hi" ? 0 : 1]) + '</td><td class="price">₹' + esc(r.price) + "</td></tr>").join("");
+    '<li><span class="rc-n">' + esc(r[lang]) + " <small>" + esc(r.unit[lang === "hi" ? 0 : 1]) + '</small></span><i class="rc-dots"></i><b>₹' + esc(r.price) + "</b></li>").join("");
   $("sampleTag").hidden = !CONFIG.ratesAreSample;
   $("sampleNote").hidden = !CONFIG.ratesAreSample;
 }
 
 /* ---------- enquiry ---------- */
-function formText() {
-  const L = T[lang], sel = $("enqService");
-  return L.waForm($("enqName").value.trim(), $("enqMobile").value.trim(), sel.options[sel.selectedIndex].text, $("enqMsg").value.trim());
+function formText(preview) {
+  const L = T[lang], sel = $("enqService"), blank = preview ? "…" : "";
+  return L.waForm($("enqName").value.trim() || blank, $("enqMobile").value.trim() || blank, sel.options[sel.selectedIndex].text, $("enqMsg").value.trim());
 }
+function syncForm() { $("sendBtn").href = wa(formText(false)); $("waPreview").textContent = formText(true); }
 function renderEnquiry() {
   const sel = $("enqService"); if (!sel) return;
   const L = T[lang], keep = sel.value;
   sel.innerHTML = SERVICES.map(s => '<option value="' + s.id + '">' + esc(s[lang]) + "</option>").join("") + '<option value="other">' + esc(L.fOther) + "</option>";
   if (keep) sel.value = keep;
-  $("sendBtn").href = wa(formText());
+  syncForm();
   $("enqErr").hidden = true;
 }
 
@@ -392,8 +448,7 @@ function renderMap() {
     if (!box.querySelector("iframe")) box.innerHTML = '<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="' + esc(CONFIG.mapEmbedUrl) + '"></iframe>';
     box.querySelector("iframe").title = L.lblMap + ": " + CONFIG.address[lang];
   } else {
-    box.innerHTML = '<div class="map-ph"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 4.5A2.5 2.5 0 1 1 12 11.5 2.5 2.5 0 0 1 12 6.5Z"/></svg>' +
-      "<strong>" + esc(CONFIG.name[lang]) + "</strong><span>" + esc(CONFIG.address[lang]) + "</span><span>" + esc(L.mapHint) + "</span></div>";
+    box.innerHTML = '<div class="map-ph">' + ico("contact") + "<strong>" + esc(CONFIG.name[lang]) + "</strong><span>" + esc(CONFIG.address[lang]) + "</span><span>" + esc(L.mapHint) + "</span></div>";
   }
 }
 
@@ -421,9 +476,9 @@ function renderAll() {
     $("igRow").hidden = !CONFIG.instagram;
     if (CONFIG.instagram) { $("igLink").href = "https://www.instagram.com/" + CONFIG.instagram + "/"; $("igLink").textContent = "@" + CONFIG.instagram; }
   }
-  renderCats(); renderChips(); renderServices(); renderRates(); renderEnquiry(); renderMap(); renderStatus();
+  renderHome(); renderChips(); renderServices(); renderRates(); renderEnquiry(); renderMap(); renderStatus();
   all("[data-nav]").forEach(a => { a.href = pageHref(a.dataset.nav); });
-  all(".top nav a").forEach(a => { if (a.dataset.nav === PAGE) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  all(".nav a").forEach(a => { if (a.dataset.nav === PAGE) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
 }
 
 /* ---------- events ---------- */
@@ -450,8 +505,10 @@ on("svcGrid", "toggle", e => {
 on("svcGrid", "change", e => {
   if (e.target.type !== "checkbox") return;
   if (e.target.checked) ticked.add(e.target.id); else ticked.delete(e.target.id);
+  progress(e.target.closest(".svc"));
 });
-on("enqForm", "input", () => { $("sendBtn").href = wa(formText()); $("enqErr").hidden = true; });
+on("enqForm", "input", () => { syncForm(); $("enqErr").hidden = true; });
+on("enqForm", "change", syncForm);
 on("enqForm", "submit", e => e.preventDefault());
 on("enqMobile", "input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10); });
 on("sendBtn", "click", e => {
@@ -460,7 +517,7 @@ on("sendBtn", "click", e => {
   if (!$("enqName").value.trim()) { msg = L.errName; focus = $("enqName"); }
   else if (!/^[6-9]\d{9}$/.test($("enqMobile").value.trim())) { msg = L.errMobile; focus = $("enqMobile"); }
   if (msg) { e.preventDefault(); err.textContent = msg; err.hidden = false; focus.focus(); return; }
-  e.currentTarget.href = wa(formText());
+  e.currentTarget.href = wa(formText(false));
 });
 on("copyBtn", "click", () => {
   const btn = $("copyBtn"), done = () => { btn.textContent = T[lang].copied; setTimeout(() => { btn.textContent = T[lang].copy; }, 1800); };

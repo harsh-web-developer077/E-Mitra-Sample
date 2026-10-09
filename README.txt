@@ -15,10 +15,11 @@ Badlav kahan karne hain
   CONFIG      kendra ka naam, phone, WhatsApp, Instagram, pata, map link, samay
   SERVICES    har seva ke kaagaz aur fee (fee khaali rahe to "sarkari dar" dikhta hai)
   SHOP_RATES  photocopy, print waghera ke rate (abhi namuna hain)
+  Rang badalne hon to site.css ke sabse upar --p-pink, --p-sun, --p-teal waghera badal do.
 
 Live karne se pehle
   1. CONFIG me asli naam, phone aur WhatsApp number bharo.
   2. SHOP_RATES me asli rate bharo, phir ratesAreSample: false karo.
-  3. demo: false karo (upar ki peeli patti hat jayegi).
+  3. demo: false karo (upar ki patti hat jayegi).
   4. Kaagazon ki list client se ek baar check karwa lo.
   5. Google Business Profile banne ke baad uska link mapUrl me daal do.
